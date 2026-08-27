@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>KVG - Chấm điểm nhà thầu</title>
+  <style>
+    :root{--bg:#f5f7fb;--card:#fff;--text:#172033;--line:#dde3ee;--primary:#1e4f91;--danger:#b42318;--ok:#067647}
+    *{box-sizing:border-box} body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text)}
+    header{background:#0f2f57;color:#fff;padding:18px 24px}.wrap{max-width:1200px;margin:auto;padding:20px}.grid{display:grid;gap:16px}.g2{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;box-shadow:0 4px 16px rgba(20,40,80,.05)}
+    h1,h2,h3{margin-top:0} input,select,textarea,button{width:100%;padding:10px 12px;border:1px solid #c9d2df;border-radius:8px;font:inherit} textarea{min-height:70px} button{cursor:pointer;background:var(--primary);color:white;border:0;font-weight:700} button.secondary{background:#667085}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.hide{display:none}.muted{color:#667085;font-size:13px}.badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#eef3f8;font-size:12px}.ok{color:var(--ok)}.danger{color:var(--danger)}
+    table{width:100%;border-collapse:collapse} th,td{padding:9px;border-bottom:1px solid var(--line);text-align:left;font-size:14px} th{background:#f8fafc}.criteria{border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px}.criteria h4{margin:0 0 8px}.actions{display:flex;gap:10px}.actions button{width:auto}.topbar{display:flex;gap:10px;align-items:end;flex-wrap:wrap}.topbar>div{min-width:220px;flex:1}.notice{padding:10px;border-radius:8px;background:#fff5f5;color:#912018;margin:10px 0}.success{background:#ecfdf3;color:#05603a}
+  </style>
+</head>
+<body>
+<header><h1>KVG - HỆ THỐNG CHẤM ĐIỂM NHÀ THẦU</h1></header>
+<div class="wrap">
+  <div id="loginCard" class="card">
+    <h2>Đăng nhập</h2><p class="muted">Nhập email đã được khai báo trong sheet 01_USERS.</p>
+    <div class="row"><input id="email" placeholder="email@kvg..."/><button onclick="login()">Vào hệ thống</button></div>
+    <div id="loginMsg"></div>
+  </div>
+
+  <div id="app" class="hide">
+    <div class="card">
+      <div class="topbar">
+        <div><label>Người dùng</label><div id="userInfo"></div></div>
+        <div><label>Gói thầu</label><select id="packageSelect" onchange="refreshPackage()"></select></div>
+        <div><label>Nhà thầu</label><select id="contractorSelect" onchange="renderScoring()"></select></div>
+      </div>
+    </div>
+
+    <div id="secretaryArea" class="grid g2" style="margin-top:16px">
+      <div class="card"><h3>Tạo gói thầu</h3>
+        <input id="pkgName" placeholder="Tên gói thầu"/><br><br><input id="pkgValue" type="number" placeholder="Giá trị gói thầu"/><br><br>
+        <input id="pkgUnit" placeholder="Khối / đơn vị phụ trách"/><br><br><div class="row"><input id="pkgStart" type="date"/><input id="pkgDeadline" type="date"/></div><br>
+        <textarea id="pkgNote" placeholder="Ghi chú"></textarea><br><br><button onclick="createPackage()">Tạo gói thầu</button>
+      </div>
+      <div class="card"><h3>Thêm nhà thầu</h3>
+        <input id="ctName" placeholder="Tên nhà thầu"/><br><br><input id="ctMst" placeholder="Mã số thuế"/><br><br><input id="ctContact" placeholder="Người liên hệ"/><br><br>
+        <div class="row"><input id="ctPhone" placeholder="Điện thoại"/><input id="ctEmail" placeholder="Email nhà thầu"/></div><br><textarea id="ctNote" placeholder="Ghi chú"></textarea><br><br>
+        <button onclick="addContractor()">Thêm nhà thầu</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px"><h3>Chấm điểm</h3><div id="scoreMsg"></div><div id="criteriaList"></div></div>
+    <div class="card" style="margin-top:16px"><h3>Tổng hợp & xếp hạng</h3><button onclick="loadSummary()">Cập nhật bảng tổng hợp</button><div style="overflow:auto;margin-top:12px"><table><thead><tr><th>Hạng</th><th>Nhà thầu</th><th>I</th><th>II</th><th>III</th><th>Tổng</th><th>Kết luận</th></tr></thead><tbody id="summaryBody"></tbody></table></div></div>
+  </div>
+</div>
+<script src="config.js"></script>
+<script>
+let state={email:'',user:null,data:null};
+async function api(action,payload={}){
+  const body={action,...payload};
+  const r=await fetch(CONFIG.API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body),redirect:'follow'});
+  const j=await r.json(); if(!j.success) throw new Error(j.message||'API error'); return j.data;
+}
+function esc(s){return String(s??'').replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+async function login(){
+  try{state.email=document.getElementById('email').value.trim();const data=await api('getBootstrap',{email:state.email});if(!data.user) throw new Error('Email chưa được khai báo trong 01_USERS');state.user=data.user;state.data=data;document.getElementById('loginCard').classList.add('hide');document.getElementById('app').classList.remove('hide');document.getElementById('userInfo').innerHTML=`<b>${esc(data.user.HO_TEN||state.email)}</b><br><span class="muted">${esc(data.user.PHONG_BAN||'')} - ${esc(data.user.ROLE||'')}</span>`;if(!['ADMIN','THU_KY'].includes(data.user.ROLE))document.getElementById('secretaryArea').classList.add('hide');renderPackages();}catch(e){document.getElementById('loginMsg').innerHTML=`<div class="notice">${esc(e.message)}</div>`}}
+function renderPackages(){const s=document.getElementById('packageSelect');s.innerHTML='<option value="">-- Chọn gói thầu --</option>'+state.data.packages.map(x=>`<option value="${esc(x.GOI_THAU_ID)}">${esc(x.TEN_GOI_THAU)}</option>`).join('');refreshPackage();}
+function refreshPackage(){const id=document.getElementById('packageSelect').value;const list=state.data.contractors.filter(x=>x.GOI_THAU_ID===id);document.getElementById('contractorSelect').innerHTML='<option value="">-- Chọn nhà thầu --</option>'+list.map(x=>`<option value="${esc(x.NHA_THAU_ID)}">${esc(x.TEN_NHA_THAU)}</option>`).join('');renderScoring();loadSummary();}
+function canScore(c){if(!state.user||state.user.ROLE!=='NGUOI_CHAM') return true;const gt=document.getElementById('packageSelect').value;return state.data.assignments.some(a=>a.GOI_THAU_ID===gt&&a.TIEU_CHI_ID===c.TIEU_CHI_ID&&String(a.ACTIVE).toUpperCase()!=='N'&&(String(a.EMAIL_NGUOI_CHAM||'').toLowerCase()===state.email.toLowerCase()||a.PHONG_BAN===state.user.PHONG_BAN));}
+function renderScoring(){const gt=document.getElementById('packageSelect').value,nt=document.getElementById('contractorSelect').value,box=document.getElementById('criteriaList');if(!gt||!nt){box.innerHTML='<p class="muted">Chọn gói thầu và nhà thầu để chấm.</p>';return;}let html='';for(const c of state.data.criteria){const opts=state.data.scales.filter(x=>x.TIEU_CHI_ID===c.TIEU_CHI_ID);const mine=state.data.scores.filter(x=>x.GOI_THAU_ID===gt&&x.NHA_THAU_ID===nt&&x.TIEU_CHI_ID===c.TIEU_CHI_ID&&String(x.EMAIL_NGUOI_CHAM||'').toLowerCase()===state.email.toLowerCase()).slice(-1)[0];const disabled=canScore(c)?'':'disabled';html+=`<div class="criteria"><h4>${esc(c.NHOM)}.${esc(c.STT)} - ${esc(c.TEN_TIEU_CHI)} <span class="badge">Tối đa ${esc(c.DIEM_TOI_DA)}đ</span></h4><select id="opt_${c.TIEU_CHI_ID}" ${disabled}><option value="">-- Chọn kết quả --</option>${opts.map(o=>`<option ${mine&&mine.LUA_CHON===o.LUA_CHON?'selected':''}>${esc(o.LUA_CHON)}</option>`).join('')}</select><br><br><textarea id="note_${c.TIEU_CHI_ID}" ${disabled} placeholder="Nhận xét">${esc(mine?mine.NHAN_XET:'')}</textarea><div class="actions" style="margin-top:8px"><button ${disabled} onclick="saveScore('${c.TIEU_CHI_ID}','LUU_NHAP')">Lưu nháp</button><button ${disabled} onclick="saveScore('${c.TIEU_CHI_ID}','DA_GUI')">Gửi kết quả</button></div></div>`;}box.innerHTML=html;}
+async function saveScore(id,status){try{const gt=document.getElementById('packageSelect').value,nt=document.getElementById('contractorSelect').value,opt=document.getElementById('opt_'+id).value;if(!opt)throw new Error('Vui lòng chọn kết quả');const d=await api('saveScore',{email:state.email,goiThauId:gt,nhaThauId:nt,tieuChiId:id,luaChon:opt,nhanXet:document.getElementById('note_'+id).value,trangThai:status});document.getElementById('scoreMsg').innerHTML=`<div class="notice success">Đã lưu. Điểm: ${d.diem}${d.loai?' - Kết quả loại':''}</div>`;state.data=await api('getBootstrap',{email:state.email});renderScoring();loadSummary();}catch(e){document.getElementById('scoreMsg').innerHTML=`<div class="notice">${esc(e.message)}</div>`}}
+async function createPackage(){try{await api('createPackage',{email:state.email,tenGoiThau:document.getElementById('pkgName').value,giaTri:document.getElementById('pkgValue').value,donVi:document.getElementById('pkgUnit').value,thuKy:state.email,ngayBatDau:document.getElementById('pkgStart').value,hanCham:document.getElementById('pkgDeadline').value,ghiChu:document.getElementById('pkgNote').value});state.data=await api('getBootstrap',{email:state.email});renderPackages();alert('Đã tạo gói thầu');}catch(e){alert(e.message)}}
+async function addContractor(){try{const gt=document.getElementById('packageSelect').value;if(!gt)throw new Error('Chọn gói thầu trước');await api('addContractor',{email:state.email,goiThauId:gt,tenNhaThau:document.getElementById('ctName').value,mst:document.getElementById('ctMst').value,nguoiLienHe:document.getElementById('ctContact').value,dienThoai:document.getElementById('ctPhone').value,emailNhaThau:document.getElementById('ctEmail').value,ghiChu:document.getElementById('ctNote').value});state.data=await api('getBootstrap',{email:state.email});document.getElementById('packageSelect').value=gt;refreshPackage();alert('Đã thêm nhà thầu');}catch(e){alert(e.message)}}
+async function loadSummary(){try{const gt=document.getElementById('packageSelect').value;if(!gt)return;const rows=await api('getSummary',{email:state.email,goiThauId:gt});const names=Object.fromEntries(state.data.contractors.map(x=>[x.NHA_THAU_ID,x.TEN_NHA_THAU]));document.getElementById('summaryBody').innerHTML=rows.sort((a,b)=>Number(a.XEP_HANG)-Number(b.XEP_HANG)).map(r=>`<tr><td>${esc(r.XEP_HANG)}</td><td>${esc(names[r.NHA_THAU_ID]||r.NHA_THAU_ID)}</td><td>${esc(r.DIEM_NHOM_I)}</td><td>${esc(r.DIEM_NHOM_II)}</td><td>${esc(r.DIEM_NHOM_III)}</td><td><b>${esc(r.TONG_DIEM)}/${esc(r.DIEM_TOI_DA)}</b></td><td class="${String(r.KET_LUAN).startsWith('ĐẠT')?'ok':'danger'}">${esc(r.KET_LUAN)}</td></tr>`).join('');}catch(e){console.error(e)}}
+</script>
+</body></html>
