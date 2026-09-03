@@ -130,7 +130,7 @@ body.is-loading{cursor:wait}body.is-loading button,body.is-loading select,body.i
     <section id="view-summary" class="view hide">
       <div class="card">
         <div style="margin-bottom:14px"><label><b>Tìm gói thầu</b></label><input id="packageSearchText" placeholder="Nhập mã gói thầu, tên gói thầu hoặc ghi chú..." oninput="renderPackageSearchResults()"><div id="packageSearchResults" class="search-results hide"></div></div>
-        <div class="row" style="align-items:center"><div><h3 style="margin:0">Dashboard tổng hợp gói thầu</h3><p class="muted">Chỉ cần chọn Gói thầu. Hệ thống tự tổng hợp tất cả nhà thầu, điểm từng tiêu chí và nhận xét để so sánh.</p></div><div style="flex:0 0 auto"><button onclick="loadSummary(true)">Cập nhật</button></div></div>
+        <div class="row" style="align-items:center"><div><h3 style="margin:0">Dashboard tổng hợp gói thầu</h3><p class="muted">Chỉ cần chọn Gói thầu. Hệ thống tự tổng hợp tất cả nhà thầu, điểm từng tiêu chí và nhận xét để so sánh.</p></div><div style="flex:0 0 auto;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><button id="summaryReminderBtn" class="secondary hide" onclick="sendSummaryReminders()">Gửi mail nhắc nhở</button><button onclick="loadSummary(true)">Cập nhật</button></div></div>
         <div id="summaryMsg"></div>
         <h4>Xếp hạng tổng quan</h4>
         <div style="overflow:auto"><table><thead><tr><th>Hạng</th><th>Nhà thầu</th><th>NĂNG LỰC TÀI CHÍNH</th><th>KINH NGHIỆM DỰ ÁN TƯƠNG TỰ</th><th>NĂNG LỰC TỔ CHỨC THỰC HIỆN</th><th>Tổng</th><th>Kết luận</th></tr></thead><tbody id="summaryBody"></tbody></table></div>
@@ -207,7 +207,7 @@ function key(v){return String(v??'').trim()}
 function roleKey(v){return String(v??'').trim().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/Đ/g,'D').replace(/[^A-Z0-9]+/g,'_').replace(/^_+|_+$/g,'')}
 function displayConclusion(v){const k=roleKey(v);if(k==='DAT')return 'ĐẠT';if(k==='KHONG_DAT')return 'KHÔNG ĐẠT';if(k.indexOf('LOAI')===0)return 'LOẠI - không đạt điều kiện tiên quyết';return String(v??'')}
 function msg(id,text,ok=false){document.getElementById(id).innerHTML=text?`<div class="notice ${ok?'success':''}">${esc(text)}</div>`:''}
-function applyBootstrap(data){state.data=data;state.user=data.user;document.getElementById('loginCard').classList.add('hide');document.getElementById('app').classList.remove('hide');document.getElementById('utilityTabs').classList.remove('hide');document.getElementById('topUser').innerHTML=`<b>${esc(state.user.HO_TEN||state.user.EMAIL)}</b> <span class="pill">${esc(state.user.USER_ID)}</span><div class="muted" style="color:#dbeaf5">${esc(state.user.PHONG_BAN||'')} - ${esc(state.user.ROLE||'')}</div>`;const rk=roleKey(state.user.ROLE),manager=['ADMIN','THU_KY'].includes(rk),admin=rk==='ADMIN';document.getElementById('tabPackageAdmin').classList.toggle('hide',!manager);document.getElementById('tabContractorAdmin').classList.toggle('hide',!manager);document.getElementById('tabAssignment').classList.toggle('hide',!manager);document.getElementById('tabUserAdmin').classList.toggle('hide',!admin);document.getElementById('tabLogs').classList.toggle('hide',!admin);renderPackages();renderAssignmentControls();renderContractorPackageSelect();renderUsers();renderLogFilters();renderContractorSearch();applyScoringDeepLink()}
+function applyBootstrap(data){state.data=data;state.user=data.user;document.getElementById('loginCard').classList.add('hide');document.getElementById('app').classList.remove('hide');document.getElementById('utilityTabs').classList.remove('hide');document.getElementById('topUser').innerHTML=`<b>${esc(state.user.HO_TEN||state.user.EMAIL)}</b> <span class="pill">${esc(state.user.USER_ID)}</span><div class="muted" style="color:#dbeaf5">${esc(state.user.PHONG_BAN||'')} - ${esc(state.user.ROLE||'')}</div>`;const rk=roleKey(state.user.ROLE),manager=['ADMIN','THU_KY'].includes(rk),admin=rk==='ADMIN';document.getElementById('tabPackageAdmin').classList.toggle('hide',!manager);document.getElementById('tabContractorAdmin').classList.toggle('hide',!manager);document.getElementById('tabAssignment').classList.toggle('hide',!manager);document.getElementById('tabUserAdmin').classList.toggle('hide',!admin);document.getElementById('tabLogs').classList.toggle('hide',!admin);const reminderBtn=document.getElementById('summaryReminderBtn');if(reminderBtn)reminderBtn.classList.toggle('hide',!manager);renderPackages();renderAssignmentControls();renderContractorPackageSelect();renderUsers();renderLogFilters();renderContractorSearch();applyScoringDeepLink()}
 
 function applyScoringDeepLink(){
   if(!state.data)return;
@@ -305,6 +305,22 @@ async function saveUserForm(){try{const payload={userId:document.getElementById(
 function renderLogFilters(){if(!state.data||roleKey(state.user.ROLE)!=='ADMIN')return;const ps=document.getElementById('logPackage'),us=document.getElementById('logUser');if(!ps||!us)return;const pv=ps.value,uv=us.value;ps.innerHTML='<option value="">-- Tất cả gói thầu --</option>'+(state.data.packages||[]).map(x=>`<option value="${esc(x.GOI_THAU_ID)}">${esc(x.GOI_THAU_ID)} - ${esc(x.TEN_GOI_THAU)}</option>`).join('');us.innerHTML='<option value="">-- Tất cả user --</option>'+(state.data.users||[]).map(x=>`<option value="${esc(x.USER_ID)}">${esc(x.HO_TEN||x.EMAIL)} - ${esc(x.EMAIL)}</option>`).join('');if([...ps.options].some(o=>o.value===pv))ps.value=pv;if([...us.options].some(o=>o.value===uv))us.value=uv;renderLogContractors()}
 function renderLogContractors(){const s=document.getElementById('logContractor');if(!s||!state.data)return;const gt=document.getElementById('logPackage').value,cur=s.value,rows=(state.data.contractors||[]).filter(x=>!gt||key(x.GOI_THAU_ID)===key(gt));s.innerHTML='<option value="">-- Tất cả nhà thầu --</option>'+rows.map(x=>`<option value="${esc(x.NHA_THAU_ID)}">${esc(x.TEN_NHA_THAU)}</option>`).join('');if([...s.options].some(o=>o.value===cur))s.value=cur}
 async function loadLogs(){try{const d=await api('getLogs',{goiThauId:document.getElementById('logPackage').value,nhaThauId:document.getElementById('logContractor').value,userId:document.getElementById('logUser').value,q:document.getElementById('logText').value});const body=document.getElementById('logBody');body.innerHTML=(d.rows||[]).map(r=>`<tr><td>${esc(r.TIME||'')}</td><td><b>${esc(r.HO_TEN||r.USER_ID||'')}</b><br><span class="muted">${esc(r.EMAIL_SNAPSHOT||'')}</span></td><td>${esc(r.GOI_THAU_ID||'')}<br>${esc(r.TEN_GOI_THAU||'')}</td><td>${esc(r.TEN_NHA_THAU||r.NHA_THAU_ID||'')}</td><td>${esc(r.ACTION||'')}</td><td>${esc(r.DEVICE||'Không xác định')}</td><td class="ip-cell">${esc(formatWanIp(r.WAN_IP)||'Không xác định')}</td><td>${esc(r.DETAIL||'')}</td></tr>`).join('')||'<tr><td colspan="8" class="muted">Không có log phù hợp.</td></tr>';msg('logMsg','Tìm thấy '+(d.rows||[]).length+' dòng log',true)}catch(e){msg('logMsg',e.message)}}
+
+
+async function sendSummaryReminders(){
+  const gt=document.getElementById('packageSelect').value;
+  if(!gt){msg('summaryMsg','Vui lòng chọn Gói thầu');return}
+  const pkg=(state.data.packages||[]).find(x=>key(x.GOI_THAU_ID)===key(gt));
+  if(!confirm(`Gửi email [NHẮC NHỞ] đến tất cả user còn tiêu chí chưa hoàn thành của gói thầu ${gt}${pkg&&pkg.TEN_GOI_THAU?' - '+pkg.TEN_GOI_THAU:''}?`))return;
+  try{
+    const d=await api('sendScoringReminders',{goiThauId:gt});
+    if(!d.pendingUsers){msg('summaryMsg','Không có user nào còn tiêu chí được phân công chưa hoàn thành.',true);return}
+    const failed=(d.results||[]).filter(x=>!x.sent);
+    let text=`Đã gửi email nhắc nhở thành công ${d.sentCount}/${d.pendingUsers} user chưa hoàn thành chấm điểm.`;
+    if(failed.length)text+=' Lỗi: '+failed.map(x=>(x.hoTen||x.email||x.userId)+': '+(x.error||'Không gửi được email')).join(' | ');
+    msg('summaryMsg',text,failed.length===0);
+  }catch(e){msg('summaryMsg',e.message)}
+}
 
 async function loadSummary(force=false){
   try{
