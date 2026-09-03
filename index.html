@@ -203,7 +203,23 @@ function key(v){return String(v??'').trim()}
 function roleKey(v){return String(v??'').trim().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/Đ/g,'D').replace(/[^A-Z0-9]+/g,'_').replace(/^_+|_+$/g,'')}
 function displayConclusion(v){const k=roleKey(v);if(k==='DAT')return 'ĐẠT';if(k==='KHONG_DAT')return 'KHÔNG ĐẠT';if(k.indexOf('LOAI')===0)return 'LOẠI - không đạt điều kiện tiên quyết';return String(v??'')}
 function msg(id,text,ok=false){document.getElementById(id).innerHTML=text?`<div class="notice ${ok?'success':''}">${esc(text)}</div>`:''}
-function applyBootstrap(data){state.data=data;state.user=data.user;document.getElementById('loginCard').classList.add('hide');document.getElementById('app').classList.remove('hide');document.getElementById('utilityTabs').classList.remove('hide');document.getElementById('topUser').innerHTML=`<b>${esc(state.user.HO_TEN||state.user.EMAIL)}</b> <span class="pill">${esc(state.user.USER_ID)}</span><div class="muted" style="color:#dbeaf5">${esc(state.user.PHONG_BAN||'')} - ${esc(state.user.ROLE||'')}</div>`;const rk=roleKey(state.user.ROLE),manager=['ADMIN','THU_KY'].includes(rk),admin=rk==='ADMIN';document.getElementById('tabPackageAdmin').classList.toggle('hide',!manager);document.getElementById('tabContractorAdmin').classList.toggle('hide',!manager);document.getElementById('tabAssignment').classList.toggle('hide',!manager);document.getElementById('tabUserAdmin').classList.toggle('hide',!admin);document.getElementById('tabLogs').classList.toggle('hide',!admin);renderPackages();renderAssignmentControls();renderContractorPackageSelect();renderUsers();renderLogFilters();renderContractorSearch()}
+function applyBootstrap(data){state.data=data;state.user=data.user;document.getElementById('loginCard').classList.add('hide');document.getElementById('app').classList.remove('hide');document.getElementById('utilityTabs').classList.remove('hide');document.getElementById('topUser').innerHTML=`<b>${esc(state.user.HO_TEN||state.user.EMAIL)}</b> <span class="pill">${esc(state.user.USER_ID)}</span><div class="muted" style="color:#dbeaf5">${esc(state.user.PHONG_BAN||'')} - ${esc(state.user.ROLE||'')}</div>`;const rk=roleKey(state.user.ROLE),manager=['ADMIN','THU_KY'].includes(rk),admin=rk==='ADMIN';document.getElementById('tabPackageAdmin').classList.toggle('hide',!manager);document.getElementById('tabContractorAdmin').classList.toggle('hide',!manager);document.getElementById('tabAssignment').classList.toggle('hide',!manager);document.getElementById('tabUserAdmin').classList.toggle('hide',!admin);document.getElementById('tabLogs').classList.toggle('hide',!admin);renderPackages();renderAssignmentControls();renderContractorPackageSelect();renderUsers();renderLogFilters();renderContractorSearch();applyScoringDeepLink()}
+
+function applyScoringDeepLink(){
+  if(!state.data)return;
+  const q=new URLSearchParams(location.search),view=q.get('view'),gt=q.get('gt'),nt=q.get('nt');
+  if(view!=='scoring'||!gt||!nt)return;
+  const ps=document.getElementById('packageSelect'),cs=document.getElementById('contractorSelect');
+  if(!ps||!cs)return;
+  if([ ...ps.options ].some(o=>key(o.value)===key(gt))){
+    ps.value=gt;
+    refreshPackage();
+    if([ ...cs.options ].some(o=>key(o.value)===key(nt)))cs.value=nt;
+    openTab('scoring');
+    renderScoring();
+  }
+}
+
 async function login(){try{msg('loginMsg','');const d=await api('login',{email:document.getElementById('email').value.trim(),password:document.getElementById('password').value});state.token=d.token;localStorage.setItem('kvg_token',state.token);if(d.bootstrap)applyBootstrap(d.bootstrap);else await bootstrap()}catch(e){msg('loginMsg',e.message)}}
 async function bootstrap(){try{applyBootstrap(await api('getBootstrap'))}catch(e){localStorage.removeItem('kvg_token');state.token='';document.getElementById('loginCard').classList.remove('hide');document.getElementById('app').classList.add('hide');msg('loginMsg',e.message)}}
 async function logout(){try{await api('logout')}catch(e){}localStorage.removeItem('kvg_token');location.reload()}
